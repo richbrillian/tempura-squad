@@ -76,9 +76,10 @@
 </header>
 
 <div class="geo hide" id="geo"></div>
+<div id="min-note" class="geo wait hide" style="margin-top:8px"></div>
 
 <main>
-  <h2>Jajanan Tusuk</h2>
+  <h2>Menu Jajanan</h2>
   <div id="list-tusuk"></div>
   <h2>Minuman</h2>
   <div id="list-minum"></div>
@@ -170,6 +171,7 @@ const CONFIG = {
   lokasi: { lat: 3.5314288, lng: 98.6982972 }, // koordinat warung; isi setelah dicek lewat ?atur
   gratisM: 150,                   // sampai jarak ini gratis ongkir
   tarif: [ {sampai:500, ongkir:2000}, {sampai:1000, ongkir:3000, lambat:true} ], // jarak (m) -> ongkir
+  minDekat: 10000, minJauh: 15000, // minimal belanja: sampai gratisM (150 m) vs lebih jauh
   maxOrderM: 5000,                // lebih dari 1 km diantar ojol; maksimal dilayani sampai jarak ini
   waKontak: "628969175780",       // WA lama 0896-9175-780 (tombol chat WhatsApp)
   // Perkiraan tarif kurir ojol (Rp). minimal = harga sampai minKm; sesudahnya + perKm tiap km. Ubah sesuai harga asli di aplikasi.
@@ -184,18 +186,30 @@ const CONFIG = {
   qrisImage: "qris.png",          // taruh foto QRIS usaha di folder yang sama, namai qris.png
   promoPer: 0,                    // promo dimatikan; isi 10 untuk nyalakan lagi (10 tusuk = 1 es teh gratis)
   menu: [
-    { id:"telur",  grup:"tusuk", nama:"Telur Gulung", harga:1000, ket:"per tusuk" },
-    { id:"tela",   grup:"tusuk", nama:"Tela Tela",    harga:1000, ket:"per tusuk" },
-    { id:"dimsum", grup:"tusuk", nama:"Dimsum",       harga:1000, ket:"per tusuk" },
-    { id:"bakso",  grup:"tusuk", nama:"Aneka Bakso",  harga:1000, ket:"per tusuk" },
-    { id:"esteh",  grup:"minum", nama:"Es Teh Manis Dingin", harga:5000, ket:"per gelas" }
+    { id:"telur",  grup:"tusuk", nama:"Telur Gulung", harga:1000,  ket:"per tusuk" },
+    { id:"tela",   grup:"tusuk", nama:"Tela Tela",    harga:5000,  ket:"per porsi" },
+    { id:"dimsum", grup:"tusuk", nama:"Dimsum",       harga:12000, ket:"per porsi" },
+    { id:"mentai", grup:"tusuk", nama:"Dimsum Mentai",harga:15000, ket:"per porsi" },
+    // Aneka Bakso: dibuka kalau diklik
+    { id:"campur", grup:"bakso", nama:"Campur Aneka Bakso", harga:10000, ket:"per porsi" },
+    { id:"bakso",  grup:"bakso", nama:"Bakso",            harga:1000, ket:"per tusuk" },
+    { id:"sempol", grup:"bakso", nama:"Sempol Ayam",      harga:1000, ket:"per tusuk" },
+    { id:"tahu",   grup:"bakso", nama:"Tahu Bakso",       harga:1000, ket:"per tusuk" },
+    { id:"crispy", grup:"bakso", nama:"Tempura Crispy",   harga:1000, ket:"per tusuk" },
+    { id:"goreng", grup:"bakso", nama:"Tempura Goreng",   harga:1000, ket:"per tusuk" },
+    { id:"sosis",  grup:"bakso", nama:"Sosis",            harga:1000, ket:"per tusuk" },
+    { id:"otak",   grup:"bakso", nama:"Otak-Otak Goreng", harga:1000, ket:"per tusuk" },
+    { id:"esteh",  grup:"minum", nama:"Es Teh Manis Dingin", harga:5000, ket:"per gelas" },
+    { id:"nutri",  grup:"minum", nama:"Nutrisari Dingin",    harga:5000, ket:"per gelas" }
   ]
 };
+
 /* ======================================= */
 
 const rp = n => "Rp" + n.toLocaleString("id-ID");
 const $ = id => document.getElementById(id);
-let cart = {};
+let cart = {}, stok = {}, baksoBuka = false;
+const habis = m => !!stok[m.nama.toLowerCase()];
 try { cart = JSON.parse(localStorage.getItem("ts_cart") || "{}"); } catch(e){}
 const save = () => { try { localStorage.setItem("ts_cart", JSON.stringify(cart)); } catch(e){} };
 
@@ -203,40 +217,55 @@ function hitung(){
   let tusuk = 0, total = 0, count = 0;
   const lines = [];
   CONFIG.menu.forEach(m => {
-    const q = cart[m.id] || 0;
+    const q = habis(m) ? 0 : (cart[m.id] || 0);
     if(!q) return;
     lines.push({ nama:m.nama, q, sub:q*m.harga });
     total += q*m.harga; count += q;
-    if(m.grup === "tusuk" && m.harga <= 1000) tusuk += q;
+    if((m.grup === "tusuk" || m.grup === "bakso") && m.harga <= 1000) tusuk += q;
   });
   const gratis = CONFIG.promoPer ? Math.floor(tusuk / CONFIG.promoPer) : 0;
   const o = infoOngkir();
   return { lines, subtotal: total, total: total + (o.ongkir||0), count, tusuk, gratis, ongkir:o.ongkir, ojol:o.ojol, lambat:o.lambat, m:o.m };
 }
 
+function itemHtml(m){
+  const h=habis(m);
+  return `<div class="item" style="${h?'opacity:.55':''}">
+    <div class="info">
+      <div class="name">${m.nama}${h?' <span style="background:#a61b1b;color:#fff;font-size:11px;padding:2px 7px;border-radius:8px;vertical-align:middle">HABIS</span>':''}</div>
+      <div class="price">${rp(m.harga)} <span class="desc">${m.ket}</span></div>
+    </div>
+    <div class="qty">
+      <button class="minus" data-id="${m.id}" data-d="-1" aria-label="kurangi" ${h?'disabled':''}>−</button>
+      <span id="q-${m.id}">${h?0:(cart[m.id]||0)}</span>
+      <button data-id="${m.id}" data-d="1" aria-label="tambah" ${h?'disabled style="opacity:.4"':''}>+</button>
+    </div>
+  </div>`;
+}
 function renderMenu(){
-  ["tusuk","minum"].forEach(g => {
-    $("list-"+g).innerHTML = CONFIG.menu.filter(m => m.grup===g).map(m => `
-      <div class="item">
-        <div class="info">
-          <div class="name">${m.nama}</div>
-          <div class="price">${rp(m.harga)} <span class="desc">${m.ket}</span></div>
-        </div>
-        <div class="qty">
-          <button class="minus" data-id="${m.id}" data-d="-1" aria-label="kurangi">−</button>
-          <span id="q-${m.id}">${cart[m.id]||0}</span>
-          <button data-id="${m.id}" data-d="1" aria-label="tambah">+</button>
-        </div>
-      </div>`).join("");
-  });
+  const bakso = CONFIG.menu.filter(m=>m.grup==="bakso");
+  const semua = bakso.length>0 && bakso.every(habis);
+  const jml = bakso.reduce((a,m)=>a+(habis(m)?0:(cart[m.id]||0)),0);
+  $("list-tusuk").innerHTML = CONFIG.menu.filter(m=>m.grup==="tusuk").map(itemHtml).join("") +
+    `<details id="bakso-box" ${baksoBuka?"open":""} style="margin-bottom:10px">
+      <summary class="item" style="cursor:pointer;list-style:none;${semua?'opacity:.55':''}">
+        <div class="info"><div class="name">Aneka Bakso ${semua?'<span style="background:#a61b1b;color:#fff;font-size:11px;padding:2px 7px;border-radius:8px">HABIS</span>':''}</div>
+        <div class="price">Campur ${rp(10000)} <span class="desc">atau pilih per tusuk ${rp(1000)}</span></div></div>
+        <div style="font-weight:700;color:var(--red)">${jml?jml+" dipilih · ":""}Lihat menu ▾</div>
+      </summary>
+      <div style="padding:8px 0 0 10px;border-left:3px solid var(--line)">${bakso.map(itemHtml).join("")}</div>
+    </details>`;
+  $("list-minum").innerHTML = CONFIG.menu.filter(m=>m.grup==="minum").map(itemHtml).join("");
+  const bx=$("bakso-box"); if(bx) bx.addEventListener("toggle",()=>{ baksoBuka=bx.open; });
 }
 
 function refresh(){
-  CONFIG.menu.forEach(m => { const e=$("q-"+m.id); if(e) e.textContent = cart[m.id]||0; });
+  CONFIG.menu.forEach(m => { if(habis(m)) delete cart[m.id]; const e=$("q-"+m.id); if(e) e.textContent = cart[m.id]||0; });
   const h = hitung();
   $("bar").classList.toggle("show", h.count > 0);
   $("bar-count").textContent = h.count + " item" + (h.gratis ? " + " + h.gratis + " es teh gratis" : "");
   $("bar-total").textContent = rp(h.total);
+  cekMin();
   save();
 }
 
@@ -274,6 +303,16 @@ function infoOngkir(){
 let geoOk = !CONFIG.lokasi.lat, posNow = null;
 function jarak(a,b,c,d){const R=6371000,t=x=>x*Math.PI/180,dl=t(c-a),dg=t(d-b);
   const h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+function minBeli(){ return jarakM==null ? 0 : (jarakM<=CONFIG.gratisM ? CONFIG.minDekat : CONFIG.minJauh); }
+function cekMin(){
+  const mn=minBeli(), sub=hitung().subtotal, n=$("min-note"), btn=$("open-cart");
+  if(!mn){ n.classList.add("hide"); btn.disabled=false; return; }
+  const kurang=mn-sub, ok=kurang<=0;
+  n.classList.remove("hide"); n.className="geo "+(ok?"ok":"wait");
+  n.innerHTML = "🧾 Minimal pembelian "+rp(mn)+(jarakM<=CONFIG.gratisM?" (jarak sampai "+CONFIG.gratisM+" m)":" (jarak lebih dari "+CONFIG.gratisM+" m)")+(ok?" ✔ terpenuhi":". Kurang "+rp(kurang)+" lagi.");
+  btn.disabled=!ok; btn.style.opacity=ok?"":".55";
+  $("bar-count").textContent = $("bar-count").textContent.replace(/ · kurang.*$/,"") + (ok?"":" · kurang "+rp(kurang));
+}
 function banner(cls,html){const g=$("geo");g.className="geo "+cls;g.innerHTML=html;}
 function cekLokasi(){
   if(!CONFIG.lokasi.lat){return;}
@@ -283,7 +322,7 @@ function cekLokasi(){
   navigator.geolocation.getCurrentPosition(p=>{
     posNow=p.coords;
     const m=Math.round(jarak(p.coords.latitude,p.coords.longitude,CONFIG.lokasi.lat,CONFIG.lokasi.lng));
-    jarakM = m; if($("ojol-km")&&!$("ojol-km").dataset.u){ $("ojol-km").value=(m/1000).toFixed(1); hitungOjol(); }
+    jarakM = m; cekMin(); if($("ojol-km")&&!$("ojol-km").dataset.u){ $("ojol-km").value=(m/1000).toFixed(1); hitungOjol(); }
     geoOk = m <= CONFIG.maxOrderM;
     const o = infoOngkir();
     if(!geoOk) banner("no","📍 Kamu "+m+" m dari warung. Terlalu jauh untuk dilayani (maks "+(CONFIG.maxOrderM/1000)+" km)."+ulang);
@@ -296,7 +335,7 @@ function cekLokasi(){
     banner("no","Izin lokasi dibutuhkan untuk memesan (untuk menghitung ongkir). Aktifkan lokasi di HP, izinkan browser, lalu coba lagi."+ulang);
   },{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
 }
-function bolehPesan(){ if(geoOk && jarakM!=null) return true; alert(jarakM!=null ? "Lokasi kamu terlalu jauh dari warung (maks "+(CONFIG.maxOrderM/1000)+" km)." : "Lokasi kamu belum terdeteksi. Izinkan lokasi lalu tekan Cek ulang."); cekLokasi(); return false; }
+function bolehPesan(){ if(geoOk && jarakM!=null){ if(hitung().subtotal<minBeli()){ alert("Minimal pembelian "+rp(minBeli())+". Tambah pesananmu dulu ya."); return false; } return true; } alert(jarakM!=null ? "Lokasi kamu terlalu jauh dari warung (maks "+(CONFIG.maxOrderM/1000)+" km)." : "Lokasi kamu belum terdeteksi. Izinkan lokasi lalu tekan Cek ulang."); cekLokasi(); return false; }
 if(CONFIG.lokasi.lat){
   const q=CONFIG.lokasi.lat+","+CONFIG.lokasi.lng;
   $("map").src="https://maps.google.com/maps?q="+q+"&z=17&output=embed";
@@ -410,6 +449,16 @@ async function cekBalasan(){
     }
   }catch(e){}
 }
+async function cekStok(){
+  try{
+    const q=encodeURIComponent("select A,B");
+    const r=await fetch(`https://docs.google.com/spreadsheets/d/${CONFIG.sheetBalasan}/gviz/tq?tqx=out:csv&sheet=Stok&tq=${q}`,{cache:"no-store"});
+    if(!r.ok) return;
+    const baru={};
+    parseCSV(await r.text()).forEach(x=>{ if(x[0] && /habis|kosong|tutup/i.test(x[1]||"") ) baru[x[0].trim().toLowerCase()]=true; });
+    if(JSON.stringify(baru)!==JSON.stringify(stok)){ stok=baru; renderMenu(); refresh(); }
+  }catch(e){}
+}
 function mulaiPoll(){
   pollSampai = Date.now()+30*60e3;
   if(pollTimer) return;
@@ -441,6 +490,7 @@ $("ojol-km").addEventListener("input",()=>{ $("ojol-km").dataset.u=1; hitungOjol
 if(jarakM!=null) $("ojol-km").value=(jarakM/1000).toFixed(1);
 hitungOjol();
 renderMenu(); refresh();
+cekStok(); setInterval(()=>{ if(!document.hidden) cekStok(); },60000);
 </script>
 </body>
 </html>
