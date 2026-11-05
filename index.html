@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tempura Squad - Pesan Online</title>
+<style>
+  :root{
+    --red:#d62828; --red-dark:#a61b1b; --yellow:#ffd23f; --cream:#fff7ec;
+    --ink:#2a1a14; --muted:#7a6a62; --line:#f0dfd0; --ok:#1f9d55;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--cream);color:var(--ink);padding-bottom:96px}
+  header{background:var(--red);color:#fff;padding:22px 16px 26px;text-align:center;border-bottom:6px solid var(--yellow)}
+  header h1{margin:0;font-size:28px;letter-spacing:.5px}
+  header p{margin:4px 0 0;opacity:.92;font-size:14px}
+  .promo{margin:14px 16px 0;background:var(--yellow);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.4;font-weight:600}
+  .promo small{display:block;font-weight:500;color:#5a4300;margin-top:2px}
+  main{padding:8px 16px}
+  h2{font-size:15px;color:var(--red-dark);margin:20px 0 8px;text-transform:uppercase;letter-spacing:.8px}
+  .item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+  .item .info{flex:1;min-width:0}
+  .item .name{font-weight:650;font-size:16px}
+  .item .price{color:var(--red);font-weight:700;margin-top:2px}
+  .item .desc{color:var(--muted);font-size:12px;margin-top:2px}
+  .qty{display:flex;align-items:center;gap:10px}
+  .qty button{width:36px;height:36px;border-radius:50%;border:none;font-size:20px;font-weight:700;cursor:pointer;background:var(--red);color:#fff}
+  .qty button.minus{background:#f3e3d6;color:var(--red-dark)}
+  .qty span{min-width:22px;text-align:center;font-weight:700}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 16px;display:none;box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+  .bar.show{display:block}
+  .bar button{width:100%;border:none;background:var(--red);color:#fff;font-size:16px;font-weight:700;padding:14px;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between}
+  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:10}
+  .sheet.show{display:flex}
+  .panel{background:#fff;width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:18px 16px 24px}
+  .panel h3{margin:0 0 10px;font-size:20px;color:var(--red-dark)}
+  .row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}
+  .row.free{color:var(--ok);font-weight:600}
+  .row.total{border-top:2px dashed var(--line);margin-top:6px;padding-top:10px;font-size:18px;font-weight:800}
+  label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+  input,textarea{width:100%;padding:11px 12px;border:1px solid #e3cdb9;border-radius:10px;font-size:15px;font-family:inherit}
+  .btn{width:100%;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-top:14px}
+  .btn.red{background:var(--red);color:#fff}
+  .btn.green{background:var(--ok);color:#fff}
+  .btn.ghost{background:#f3e3d6;color:var(--red-dark)}
+  .qris{text-align:center;margin-top:6px}
+  .qris img{width:100%;max-width:300px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .qris .amount{font-size:26px;font-weight:800;color:var(--red);margin:8px 0 2px}
+  .note{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:8px}
+  .noqris{border:2px dashed #e3cdb9;border-radius:12px;padding:22px 12px;color:var(--muted);font-size:13px}
+  .hide{display:none}
+  .geo{margin:12px 16px 0;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;line-height:1.4}
+  .geo.wait{background:#eee;color:#555}
+  .geo.ok{background:#dff5e6;color:#14663a}
+  .geo.no{background:#fde2e2;color:#a61b1b}
+  .geo button{margin-top:6px;border:none;background:#a61b1b;color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer}
+  #map{width:100%;height:220px;border:0;border-radius:14px}
+  .maplink{display:block;text-align:center;text-decoration:none;margin-top:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍢 Tempura Squad</h1>
+  <p>Pesan dari tempat duduk, kami antar. Bayar pakai QRIS.</p>
+</header>
+
+<div class="promo">
+  🎉 Promo November Ceria: beli 10 tusuk jajanan Rp1.000-an, GRATIS 1 Es Teh Manis!
+  <small>Otomatis terhitung di keranjang (kelipatan 10 tusuk = 1 es teh gratis).</small>
+</div>
+
+<div class="geo hide" id="geo"></div>
+
+<main>
+  <h2>Jajanan Tusuk</h2>
+  <div id="list-tusuk"></div>
+  <h2>Minuman</h2>
+  <div id="list-minum"></div>
+  <section id="mapbox" class="hide">
+    <h2>Lokasi Kami</h2>
+    <iframe id="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <a id="maplink" class="btn ghost maplink" target="_blank" rel="noopener">Buka di Google Maps</a>
+  </section>
+</main>
+<div class="panel hide" id="atur" style="margin:16px;border-radius:14px;border:2px solid #a61b1b">
+  <h3>Mode Atur Lokasi (khusus pemilik)</h3>
+  <div id="atur-isi" class="note">Mengambil lokasi...</div>
+</div>
+
+<div class="bar" id="bar">
+  <button id="open-cart"><span id="bar-count">0 item</span><span id="bar-total">Rp0</span></button>
+</div>
+
+<!-- Langkah 1: ringkasan & data pemesan -->
+<div class="sheet" id="sheet-cart">
+  <div class="panel">
+    <h3>Pesanan Kamu</h3>
+    <div id="cart-lines"></div>
+    <label for="nama">Nama</label>
+    <input id="nama" placeholder="Nama kamu" autocomplete="name">
+    <label for="alamat">Diantar ke (alamat / meja / patokan)</label>
+    <textarea id="alamat" rows="2" placeholder="Contoh: Meja 3 / Jl. Sei Batang Hari No. 5, pagar hijau"></textarea>
+    <label for="catatan">Catatan (opsional)</label>
+    <input id="catatan" placeholder="Contoh: es teh kurang manis">
+    <button class="btn red" id="to-pay">Lanjut Bayar QRIS</button>
+    <button class="btn ghost" data-close>Kembali ke Menu</button>
+  </div>
+</div>
+
+<!-- Langkah 2: QRIS -->
+<div class="sheet" id="sheet-pay">
+  <div class="panel">
+    <h3>Bayar dengan QRIS</h3>
+    <div class="qris">
+      <div class="note" style="margin:0 0 6px">Total yang harus dibayar</div>
+      <div class="amount" id="pay-amount">Rp0</div>
+      <img id="qris-img" alt="QRIS Tempura Squad" class="hide">
+      <div class="noqris hide" id="qris-missing">QRIS belum dipasang. Hubungi penjual lewat WhatsApp.</div>
+    </div>
+    <div class="note">
+      1. Scan QRIS di atas dengan e-wallet / m-banking.<br>
+      2. Masukkan nominal sesuai total.<br>
+      3. Setelah bayar, tekan tombol di bawah. Pesanan terkirim ke WhatsApp penjual, lalu kirim juga screenshot bukti bayar di chat itu.
+    </div>
+    <button class="btn green" id="send-wa">Sudah Bayar, Kirim Pesanan</button>
+    <button class="btn ghost" id="back-cart">Kembali</button>
+  </div>
+</div>
+
+<script>
+/* ====== PENGATURAN (ubah di sini) ====== */
+const CONFIG = {
+  namaUsaha: "Tempura Squad",
+  waPenjual: "628969175780",     // 0896-9175-780 format internasional
+  lokasi: { lat: 3.5314288, lng: 98.6982972 }, // koordinat warung; isi setelah dicek lewat ?atur
+  maxMeter: 100,                  // maksimal jarak pembeli dari warung
+  qrisImage: "qris.png",          // taruh foto QRIS usaha di folder yang sama, namai qris.png
+  promoPer: 10,                   // tiap 10 tusuk jajanan = 1 es teh manis gratis
+  menu: [
+    { id:"telur",  grup:"tusuk", nama:"Telur Gulung", harga:1000, ket:"per tusuk" },
+    { id:"tela",   grup:"tusuk", nama:"Tela Tela",    harga:1000, ket:"per tusuk" },
+    { id:"dimsum", grup:"tusuk", nama:"Dimsum",       harga:1000, ket:"per tusuk" },
+    { id:"bakso",  grup:"tusuk", nama:"Aneka Bakso",  harga:1000, ket:"per tusuk" },
+    { id:"esteh",  grup:"minum", nama:"Es Teh Manis Dingin", harga:5000, ket:"per gelas" }
+  ]
+};
+/* ======================================= */
+
+const rp = n => "Rp" + n.toLocaleString("id-ID");
+const $ = id => document.getElementById(id);
+let cart = {};
+try { cart = JSON.parse(localStorage.getItem("ts_cart") || "{}"); } catch(e){}
+const save = () => { try { localStorage.setItem("ts_cart", JSON.stringify(cart)); } catch(e){} };
+
+function hitung(){
+  let tusuk = 0, total = 0, count = 0;
+  const lines = [];
+  CONFIG.menu.forEach(m => {
+    const q = cart[m.id] || 0;
+    if(!q) return;
+    lines.push({ nama:m.nama, q, sub:q*m.harga });
+    total += q*m.harga; count += q;
+    if(m.grup === "tusuk" && m.harga <= 1000) tusuk += q;
+  });
+  const gratis = Math.floor(tusuk / CONFIG.promoPer);
+  return { lines, total, count, tusuk, gratis };
+}
+
+function renderMenu(){
+  ["tusuk","minum"].forEach(g => {
+    $("list-"+g).innerHTML = CONFIG.menu.filter(m => m.grup===g).map(m => `
+      <div class="item">
+        <div class="info">
+          <div class="name">${m.nama}</div>
+          <div class="price">${rp(m.harga)} <span class="desc">${m.ket}</span></div>
+        </div>
+        <div class="qty">
+          <button class="minus" data-id="${m.id}" data-d="-1" aria-label="kurangi">−</button>
+          <span id="q-${m.id}">${cart[m.id]||0}</span>
+          <button data-id="${m.id}" data-d="1" aria-label="tambah">+</button>
+        </div>
+      </div>`).join("");
+  });
+}
+
+function refresh(){
+  CONFIG.menu.forEach(m => { const e=$("q-"+m.id); if(e) e.textContent = cart[m.id]||0; });
+  const h = hitung();
+  $("bar").classList.toggle("show", h.count > 0);
+  $("bar-count").textContent = h.count + " item" + (h.gratis ? " + " + h.gratis + " es teh gratis" : "");
+  $("bar-total").textContent = rp(h.total);
+  save();
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button[data-id]");
+  if(b){
+    const id=b.dataset.id, d=+b.dataset.d;
+    cart[id] = Math.max(0, (cart[id]||0)+d);
+    if(!cart[id]) delete cart[id];
+    refresh(); return;
+  }
+  if(e.target.closest("[data-close]")) $("sheet-cart").classList.remove("show");
+});
+
+function renderCart(){
+  const h = hitung();
+  let html = h.lines.map(l => `<div class="row"><span>${l.nama} × ${l.q}</span><span>${rp(l.sub)}</span></div>`).join("");
+  if(h.gratis) html += `<div class="row free"><span>🎁 Es Teh Manis Gratis × ${h.gratis}</span><span>Rp0</span></div>`;
+  html += `<div class="row total"><span>Total</span><span>${rp(h.total)}</span></div>`;
+  $("cart-lines").innerHTML = html;
+}
+
+/* ---- Lokasi ---- */
+let geoOk = !CONFIG.lokasi.lat, posNow = null;
+function jarak(a,b,c,d){const R=6371000,t=x=>x*Math.PI/180,dl=t(c-a),dg=t(d-b);
+  const h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+function banner(cls,html){const g=$("geo");g.className="geo "+cls;g.innerHTML=html;}
+function cekLokasi(){
+  if(!CONFIG.lokasi.lat){return;}
+  banner("wait","Mengecek lokasi kamu...");
+  const ulang='<br><button onclick="cekLokasi()">Cek ulang</button>';
+  if(!navigator.geolocation){geoOk=false;return banner("no","HP/browser kamu tidak mendukung lokasi."+ulang);}
+  navigator.geolocation.getCurrentPosition(p=>{
+    posNow=p.coords;
+    const m=Math.round(jarak(p.coords.latitude,p.coords.longitude,CONFIG.lokasi.lat,CONFIG.lokasi.lng));
+    geoOk = m<=CONFIG.maxMeter;
+    banner(geoOk?"ok":"no", geoOk
+      ? "✅ Kamu "+m+" m dari warung. Silakan pesan!"
+      : "📍 Kamu "+m+" m dari warung. Pesan hanya bisa dalam jarak "+CONFIG.maxMeter+" m. Dekati warung lalu cek ulang."+ulang);
+  },err=>{
+    geoOk=false;
+    banner("no","Izin lokasi dibutuhkan untuk memesan (maks "+CONFIG.maxMeter+" m dari warung). Aktifkan lokasi di HP, izinkan browser, lalu coba lagi."+ulang);
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
+}
+function bolehPesan(){ if(geoOk) return true; alert("Kamu belum berada dalam jarak "+CONFIG.maxMeter+" m dari warung."); cekLokasi(); return false; }
+if(CONFIG.lokasi.lat){
+  const q=CONFIG.lokasi.lat+","+CONFIG.lokasi.lng;
+  $("map").src="https://maps.google.com/maps?q="+q+"&z=17&output=embed";
+  $("maplink").href="https://www.google.com/maps?q="+q;
+  $("mapbox").classList.remove("hide"); $("geo").classList.remove("hide");
+  cekLokasi();
+}
+if(location.search.includes("atur")){
+  $("atur").classList.remove("hide");
+  navigator.geolocation && navigator.geolocation.getCurrentPosition(p=>{
+    const t=p.coords.latitude.toFixed(6)+", "+p.coords.longitude.toFixed(6);
+    $("atur-isi").innerHTML="Berdiri di titik warung, lalu kirim angka ini ke Claude:<br><b style='font-size:20px'>"+t+"</b><br>Akurasi sekitar "+Math.round(p.coords.accuracy)+" m.";
+  },e=>{$("atur-isi").textContent="Lokasi tidak diizinkan: "+e.message;},{enableHighAccuracy:true,timeout:20000});
+}
+
+$("open-cart").onclick = () => { if(!bolehPesan()) return; renderCart(); $("sheet-cart").classList.add("show"); };
+$("back-cart").onclick = () => { $("sheet-pay").classList.remove("show"); $("sheet-cart").classList.add("show"); };
+
+$("to-pay").onclick = () => {
+  if(!bolehPesan()) return;
+  if(!$("nama").value.trim()){ $("nama").focus(); return alert("Isi nama dulu ya."); }
+  if(!$("alamat").value.trim()){ $("alamat").focus(); return alert("Isi alamat / meja untuk pengantaran."); }
+  const h = hitung();
+  $("pay-amount").textContent = rp(h.total);
+  const img = $("qris-img");
+  img.onload = () => img.classList.remove("hide");
+  img.onerror = () => { img.classList.add("hide"); $("qris-missing").classList.remove("hide"); };
+  img.src = CONFIG.qrisImage;
+  $("sheet-cart").classList.remove("show");
+  $("sheet-pay").classList.add("show");
+};
+
+function noPesanan(){
+  const d = new Date();
+  return "TS-" + String(d.getDate()).padStart(2,"0") + String(d.getMonth()+1).padStart(2,"0") + "-" +
+         Math.random().toString(36).slice(2,5).toUpperCase();
+}
+
+$("send-wa").onclick = () => {
+  if(!bolehPesan()) return;
+  const h = hitung();
+  const no = noPesanan();
+  let t = `*PESANAN ${CONFIG.namaUsaha.toUpperCase()}*\nNo: ${no}\n\n`;
+  h.lines.forEach(l => t += `• ${l.nama} × ${l.q} = ${rp(l.sub)}\n`);
+  if(h.gratis) t += `• 🎁 Es Teh Manis GRATIS (promo) × ${h.gratis}\n`;
+  t += `\n*Total: ${rp(h.total)}*\nPembayaran: QRIS (sudah dibayar, bukti saya kirim di chat ini)\n\n`;
+  t += `Nama: ${$("nama").value.trim()}\nAntar ke: ${$("alamat").value.trim()}\n`;
+  if(posNow) t += `Lokasi pembeli: https://maps.google.com/?q=${posNow.latitude},${posNow.longitude}\n`;
+  if($("catatan").value.trim()) t += `Catatan: ${$("catatan").value.trim()}\n`;
+  window.open("https://wa.me/" + CONFIG.waPenjual + "?text=" + encodeURIComponent(t), "_blank");
+  cart = {}; refresh();
+  $("sheet-pay").classList.remove("show");
+  alert("Pesanan " + no + " dikirim ke WhatsApp penjual. Jangan lupa kirim bukti bayar ya. Terima kasih!");
+};
+
+renderMenu(); refresh();
+</script>
+</body>
+</html>
