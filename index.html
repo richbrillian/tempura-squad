@@ -83,19 +83,11 @@
   <div id="list-tusuk"></div>
   <h2>Minuman</h2>
   <div id="list-minum"></div>
+  <div id="ongkir-box" class="hide" style="margin:18px 0 6px;background:#fff;border:2px solid var(--line);border-radius:14px;padding:14px"></div>
   <section id="mapbox" class="hide">
     <h2>Lokasi Kami</h2>
     <iframe id="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
     <a id="maplink" class="btn ghost maplink" target="_blank" rel="noopener">Buka di Google Maps</a>
-  </section>
-  <section>
-    <h2>Cek Ongkir Ojol</h2>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="ojol-km" type="number" min="0.5" max="30" step="0.1" placeholder="Jarak (km)" inputmode="decimal" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:16px">
-      <span>km</span>
-    </div>
-    <div id="ojol-hasil" style="margin-top:10px"></div>
-    <div class="note">Perkiraan saja. Harga asli bisa beda menurut jam, cuaca, dan ramai-sepinya. Cek langsung di aplikasi sebelum memesan.</div>
   </section>
   <section>
     <h2>Hubungi Kami</h2>
@@ -284,8 +276,8 @@ function renderCart(){
   const h = hitung();
   let html = h.lines.map(l => `<div class="row"><span>${l.nama} × ${l.q}</span><span>${rp(l.sub)}</span></div>`).join("");
   if(h.gratis) html += `<div class="row free"><span>🎁 Es Teh Manis Gratis × ${h.gratis}</span><span>Rp0</span></div>`;
-  if(h.ongkir) html += `<div class="row"><span>Ongkir (${h.m} m)</span><span>${rp(h.ongkir)}</span></div>`;
-  if(h.ojol) html += `<div class="note">🛵 Jarak ${h.m} m (lebih dari 1 km): diantar lewat ojol online. Ongkir ojol dikonfirmasi lewat chat dan dibayar terpisah.</div>`;
+  if(h.ongkir) html += `<div class="row"><span>Ongkir${h.ojol?" ojol":""} (${h.m} m)</span><span>${rp(h.ongkir)}</span></div>`;
+  if(h.ojol) html += `<div class="note">🛵 Jarak ${h.m} m (lebih dari 1 km): diantar lewat ojol online. Ongkir ojol ${rp(h.ongkir)} (perkiraan tarif tertinggi) sudah masuk total.</div>`;
   if(h.lambat && !h.ojol) html += `<div class="note">🕒 Jarak agak jauh, pengantaran agak lama sedikit ya.</div>`;
   html += `<div class="row total"><span>Total</span><span>${rp(h.total)}</span></div>`;
   $("cart-lines").innerHTML = html;
@@ -293,25 +285,46 @@ function renderCart(){
 
 /* ---- Lokasi & ongkir ---- */
 let jarakM = null;
+function ojolTermahal(m){
+  const km=m/1000;
+  return Math.max(...CONFIG.ojolTarif.map(t=>Math.round((t.minimal+Math.max(0,Math.ceil(km-t.minKm))*t.perKm)/500)*500));
+}
 function infoOngkir(){
   const m = jarakM;
   if(m==null) return {m:null, ongkir:0, ojol:false, lambat:false};
   if(m<=CONFIG.gratisM) return {m, ongkir:0, ojol:false, lambat:false};
   for(const t of CONFIG.tarif){ if(m<=t.sampai) return {m, ongkir:t.ongkir, ojol:false, lambat:!!t.lambat}; }
-  return {m, ongkir:0, ojol:true, lambat:true};
+  return {m, ongkir:ojolTermahal(m), ojol:true, lambat:true};
 }
 let geoOk = !CONFIG.lokasi.lat, posNow = null;
 function jarak(a,b,c,d){const R=6371000,t=x=>x*Math.PI/180,dl=t(c-a),dg=t(d-b);
   const h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
 function minBeli(){ return jarakM==null ? 0 : (jarakM<=CONFIG.gratisM ? CONFIG.minDekat : CONFIG.minJauh); }
+let ongkirOk=false, ongkirKey="";
+function ongkirTeks(){
+  const o=infoOngkir();
+  if(o.ojol) return {judul:"Jarak "+o.m+" m (lebih dari 1 km)", isi:"Diantar lewat ojol online. Ongkir ojol "+rp(o.ongkir)+" (perkiraan tarif tertinggi, sudah masuk total).", tombol:"Setuju ongkir "+rp(o.ongkir)};
+  if(!o.ongkir) return {judul:"Jarak "+o.m+" m", isi:"Gratis ongkir 🎉", tombol:"Oke, lanjut"};
+  return {judul:"Jarak "+o.m+" m", isi:"Ongkir "+rp(o.ongkir)+(o.lambat?" (pengantaran agak lama sedikit)":""), tombol:"Setuju ongkir "+rp(o.ongkir)};
+}
 function cekMin(){
-  const mn=minBeli(), sub=hitung().subtotal, n=$("min-note"), btn=$("open-cart");
-  if(!mn){ n.classList.add("hide"); btn.disabled=false; return; }
+  const mn=minBeli(), sub=hitung().subtotal, n=$("min-note"), btn=$("open-cart"), ob=$("ongkir-box");
+  if(!mn){ n.classList.add("hide"); ob.classList.add("hide"); btn.disabled=false; return; }
   const kurang=mn-sub, ok=kurang<=0;
   n.classList.remove("hide"); n.className="geo "+(ok?"ok":"wait");
   n.innerHTML = "🧾 Minimal pembelian "+rp(mn)+(jarakM<=CONFIG.gratisM?" (jarak sampai "+CONFIG.gratisM+" m)":" (jarak lebih dari "+CONFIG.gratisM+" m)")+(ok?" ✔ terpenuhi":". Kurang "+rp(kurang)+" lagi.");
-  btn.disabled=!ok; btn.style.opacity=ok?"":".55";
-  $("bar-count").textContent = $("bar-count").textContent.replace(/ · kurang.*$/,"") + (ok?"":" · kurang "+rp(kurang));
+  const o=infoOngkir(), key=o.ongkir+"|"+o.ojol;
+  if(key!==ongkirKey){ ongkirKey=key; ongkirOk=false; }
+  if(!ok) ongkirOk=false;
+  const t=ongkirTeks();
+  ob.classList.remove("hide");
+  ob.innerHTML=`<div style="font-weight:800;margin-bottom:4px">🛵 Ongkir</div><div style="font-size:14px;color:var(--muted)">${t.judul}</div><div style="font-size:17px;font-weight:700;margin:4px 0 10px">${t.isi}</div>`+
+    (ongkirOk ? `<div style="color:var(--ok);font-weight:700">✔ Ongkir disetujui, silakan lanjut pesan</div>`
+              : `<button id="ongkir-ok" class="btn" ${ok?"":"disabled"} style="width:100%;${ok?"":"opacity:.5"}">${ok?t.tombol:"Lengkapi minimal belanja dulu"}</button>`);
+  const tb=$("ongkir-ok"); if(tb) tb.onclick=()=>{ ongkirOk=true; cekMin(); };
+  const siap=ok&&ongkirOk;
+  btn.disabled=!siap; btn.style.opacity=siap?"":".55";
+  $("bar-count").textContent = $("bar-count").textContent.replace(/ · (kurang|klik ongkir).*$/,"") + (!ok?" · kurang "+rp(kurang):(!ongkirOk?" · klik ongkir dulu ⬆":""));
 }
 function banner(cls,html){const g=$("geo");g.className="geo "+cls;g.innerHTML=html;}
 function cekLokasi(){
@@ -322,11 +335,11 @@ function cekLokasi(){
   navigator.geolocation.getCurrentPosition(p=>{
     posNow=p.coords;
     const m=Math.round(jarak(p.coords.latitude,p.coords.longitude,CONFIG.lokasi.lat,CONFIG.lokasi.lng));
-    jarakM = m; cekMin(); if($("ojol-km")&&!$("ojol-km").dataset.u){ $("ojol-km").value=(m/1000).toFixed(1); hitungOjol(); }
+    jarakM = m; cekMin();
     geoOk = m <= CONFIG.maxOrderM;
     const o = infoOngkir();
     if(!geoOk) banner("no","📍 Kamu "+m+" m dari warung. Terlalu jauh untuk dilayani (maks "+(CONFIG.maxOrderM/1000)+" km)."+ulang);
-    else if(o.ojol) banner("wait","🛵 Kamu "+m+" m dari warung. Lebih dari 1 km: diantar lewat ojol, ongkir dikonfirmasi lewat chat.");
+    else if(o.ojol) banner("wait","🛵 Kamu "+m+" m dari warung. Lebih dari 1 km: diantar lewat ojol, ongkir "+rp(o.ongkir)+" (perkiraan).");
     else if(o.ongkir) banner("ok","✅ Kamu "+m+" m dari warung. Ongkir "+rp(o.ongkir)+(o.lambat?" (pengantaran agak lama sedikit ya)":"")+".");
     else banner("ok","✅ Kamu "+m+" m dari warung. Gratis ongkir!");
     refresh();
@@ -335,7 +348,7 @@ function cekLokasi(){
     banner("no","Izin lokasi dibutuhkan untuk memesan (untuk menghitung ongkir). Aktifkan lokasi di HP, izinkan browser, lalu coba lagi."+ulang);
   },{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
 }
-function bolehPesan(){ if(geoOk && jarakM!=null){ if(hitung().subtotal<minBeli()){ alert("Minimal pembelian "+rp(minBeli())+". Tambah pesananmu dulu ya."); return false; } return true; } alert(jarakM!=null ? "Lokasi kamu terlalu jauh dari warung (maks "+(CONFIG.maxOrderM/1000)+" km)." : "Lokasi kamu belum terdeteksi. Izinkan lokasi lalu tekan Cek ulang."); cekLokasi(); return false; }
+function bolehPesan(){ if(geoOk && jarakM!=null){ if(hitung().subtotal<minBeli()){ alert("Minimal pembelian "+rp(minBeli())+". Tambah pesananmu dulu ya."); return false; } if(!ongkirOk){ alert("Klik tombol Ongkir di bawah menu dulu ya."); const e=$("ongkir-box"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); return false; } return true; } alert(jarakM!=null ? "Lokasi kamu terlalu jauh dari warung (maks "+(CONFIG.maxOrderM/1000)+" km)." : "Lokasi kamu belum terdeteksi. Izinkan lokasi lalu tekan Cek ulang."); cekLokasi(); return false; }
 if(CONFIG.lokasi.lat){
   const q=CONFIG.lokasi.lat+","+CONFIG.lokasi.lng;
   $("map").src="https://maps.google.com/maps?q="+q+"&z=17&output=embed";
@@ -360,7 +373,7 @@ $("to-pay").onclick = () => {
   if(!$("alamat").value.trim()){ $("alamat").focus(); return alert("Isi alamat / meja untuk pengantaran."); }
   const h = hitung();
   $("pay-amount").textContent = rp(h.total);
-  $("pay-note").textContent = h.ojol ? "Belum termasuk ongkir ojol (dibayar terpisah, dikonfirmasi lewat chat)." : (h.ongkir ? "Sudah termasuk ongkir "+rp(h.ongkir)+"." : "");
+  $("pay-note").textContent = (h.ongkir ? "Sudah termasuk ongkir "+rp(h.ongkir)+"." : "");
   const img = $("qris-img");
   img.onload = () => img.classList.remove("hide");
   img.onerror = () => { img.classList.add("hide"); $("qris-missing").classList.remove("hide"); };
@@ -394,7 +407,7 @@ $("send-wa").onclick = async () => {
   if(h.gratis) t += `• 🎁 Es Teh Manis GRATIS (promo) × ${h.gratis}\n`;
   if(h.m!=null) t += `\nJarak: ${h.m} m`;
   if(h.ongkir) t += `\nOngkir: ${rp(h.ongkir)}`;
-  if(h.ojol) t += `\n⚠️ JARAK LEBIH DARI 1 KM: PESAN OJOL, ongkir ojol menyusul (konfirmasi ke pembeli)`;
+  if(h.ojol) t += `\n⚠️ JARAK LEBIH DARI 1 KM: PESAN OJOL. Pembeli sudah bayar ongkir ${rp(h.ongkir)} (perkiraan tarif tertinggi). Cocokkan dengan harga ojol asli`;
   if(h.lambat && !h.ojol) t += `\n🕒 Pengantaran agak lama sedikit (jarak jauh)`;
   t += `\n\nTotal: ${rp(h.total)}\nPembayaran: QRIS (cek bukti/mutasi)\n\nNama: ${nama}\nAntar ke: ${alamat}\n`;
   if(lokasi) t += `Lokasi pembeli: ${lokasi}\n`;
@@ -480,15 +493,6 @@ $("chat-in").addEventListener("keydown",e=>{ if(e.key==="Enter") $("chat-send").
 if(order) mulaiPoll();
 
 (function(){ const u="https://wa.me/"+CONFIG.waKontak+"?text="+encodeURIComponent("Halo Tempura Squad, saya mau tanya/pesan."); $("wa-kontak").href=u; $("wa-chat").href=u; })();
-function hitungOjol(){
-  const km=parseFloat($("ojol-km").value), box=$("ojol-hasil");
-  if(!(km>0)){ box.innerHTML='<div class="note">Isi jarak, misalnya 2.5</div>'; return; }
-  const r=CONFIG.ojolTarif.map(t=>({t, harga:Math.round((t.minimal+Math.max(0,Math.ceil(km-t.minKm))*t.perKm)/500)*500})).sort((a,b)=>a.harga-b.harga);
-  box.innerHTML=r.map((x,i)=>`<a href="${x.t.app}" target="_blank" rel="noopener" class="row" style="text-decoration:none;color:inherit;${i==0?'font-weight:800;color:var(--ok)':''}"><span>${i==0?'🏆 ':''}${x.t.nama}${x.t.ket?' <small>('+x.t.ket+')</small>':''}</span><span>± ${rp(x.harga)}</span></a>`).join("");
-}
-$("ojol-km").addEventListener("input",()=>{ $("ojol-km").dataset.u=1; hitungOjol(); });
-if(jarakM!=null) $("ojol-km").value=(jarakM/1000).toFixed(1);
-hitungOjol();
 renderMenu(); refresh();
 cekStok(); setInterval(()=>{ if(!document.hidden) cekStok(); },60000);
 </script>
