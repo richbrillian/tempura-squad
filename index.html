@@ -332,26 +332,40 @@ function cekMin(){
   $("bar-count").textContent = $("bar-count").textContent.replace(/ · (kurang|klik ongkir).*$/,"") + (!ok?" · kurang "+rp(kurang):(!ongkirOk?" · klik ongkir dulu ⬆":""));
 }
 function banner(cls,html){const g=$("geo");g.className="geo "+cls;g.innerHTML=html;}
+function dalamAplikasi(){ return /FBAN|FBAV|FB_IAB|Instagram|TikTok|musical_ly|Line\/|Snapchat|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent); }
+function lokasiOk(p){
+  posNow=p.coords;
+  const m=Math.round(jarak(p.coords.latitude,p.coords.longitude,CONFIG.lokasi.lat,CONFIG.lokasi.lng));
+  jarakM = m; cekMin();
+  geoOk = m <= CONFIG.maxOrderM;
+  const ulang='<br><button onclick="cekLokasi()">Cek ulang</button>';
+  const o = infoOngkir();
+  if(!geoOk) banner("no","📍 Kamu "+m+" m dari warung. Terlalu jauh untuk dilayani (maks "+(CONFIG.maxOrderM/1000)+" km)."+ulang);
+  else if(o.ojol) banner("wait","🛵 Kamu "+m+" m dari warung. Lebih dari 1 km: diantar lewat ojol, ongkir "+rp(o.ongkir)+" (perkiraan).");
+  else if(o.ongkir) banner("ok","✅ Kamu "+m+" m dari warung. Ongkir "+rp(o.ongkir)+(o.lambat?" (pengantaran agak lama sedikit ya)":"")+".");
+  else banner("ok","✅ Kamu "+m+" m dari warung. Gratis ongkir!");
+  refresh();
+}
+function lokasiGagal(err){
+  geoOk=false;
+  const ulang='<br><button onclick="cekLokasi()">Cek ulang</button>';
+  const salinan='<br><button onclick="navigator.clipboard&&navigator.clipboard.writeText(location.href);this.textContent=\'Link disalin ✔\'">Salin link</button>';
+  let t;
+  if(dalamAplikasi()) t="Lokasi sering diblokir di browser bawaan aplikasi (Instagram/Facebook/TikTok dll). Buka link ini lewat <b>Chrome</b> atau <b>Safari</b> (titik tiga ⋮ → Buka di browser), lalu coba lagi."+salinan;
+  else if(err && err.code===1) t="Izin lokasi untuk situs ini ditolak. Ketuk ikon 🔒 / ⓘ di sebelah alamat web → <b>Izin</b> → <b>Lokasi</b> → <b>Izinkan</b>, lalu muat ulang halaman. (iPhone: Pengaturan → Privasi → Layanan Lokasi → Safari → Saat Menggunakan.)"+ulang;
+  else if(err && err.code===2) t="Lokasi HP belum terbaca. Pastikan <b>GPS/Lokasi HP aktif</b> (mode akurasi tinggi) dan sinyal baik, lalu coba lagi."+ulang;
+  else t="Pencarian lokasi terlalu lama. Pindah ke tempat terbuka / dekat jendela, pastikan GPS aktif, lalu coba lagi."+ulang;
+  banner("no",t);
+}
 function cekLokasi(){
   if(!CONFIG.lokasi.lat){return;}
-  banner("wait","Mengecek lokasi kamu...");
-  const ulang='<br><button onclick="cekLokasi()">Cek ulang</button>';
-  if(!navigator.geolocation){geoOk=false;return banner("no","HP/browser kamu tidak mendukung lokasi."+ulang);}
-  navigator.geolocation.getCurrentPosition(p=>{
-    posNow=p.coords;
-    const m=Math.round(jarak(p.coords.latitude,p.coords.longitude,CONFIG.lokasi.lat,CONFIG.lokasi.lng));
-    jarakM = m; cekMin();
-    geoOk = m <= CONFIG.maxOrderM;
-    const o = infoOngkir();
-    if(!geoOk) banner("no","📍 Kamu "+m+" m dari warung. Terlalu jauh untuk dilayani (maks "+(CONFIG.maxOrderM/1000)+" km)."+ulang);
-    else if(o.ojol) banner("wait","🛵 Kamu "+m+" m dari warung. Lebih dari 1 km: diantar lewat ojol, ongkir "+rp(o.ongkir)+" (perkiraan).");
-    else if(o.ongkir) banner("ok","✅ Kamu "+m+" m dari warung. Ongkir "+rp(o.ongkir)+(o.lambat?" (pengantaran agak lama sedikit ya)":"")+".");
-    else banner("ok","✅ Kamu "+m+" m dari warung. Gratis ongkir!");
-    refresh();
-  },err=>{
-    geoOk=false;
-    banner("no","Izin lokasi dibutuhkan untuk memesan (untuk menghitung ongkir). Aktifkan lokasi di HP, izinkan browser, lalu coba lagi."+ulang);
-  },{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
+  banner("wait","Mengecek lokasi kamu... (tunggu sebentar)");
+  if(!navigator.geolocation){geoOk=false;return banner("no","HP/browser kamu tidak mendukung lokasi. Coba buka lewat Chrome atau Safari."+'<br><button onclick="cekLokasi()">Cek ulang</button>');}
+  // 1) cepat (lokasi jaringan), 2) kalau gagal bukan karena izin, coba GPS akurat
+  navigator.geolocation.getCurrentPosition(lokasiOk, err=>{
+    if(err.code===1) return lokasiGagal(err);
+    navigator.geolocation.getCurrentPosition(lokasiOk, lokasiGagal, {enableHighAccuracy:true,timeout:20000,maximumAge:0});
+  }, {enableHighAccuracy:false,timeout:10000,maximumAge:60000});
 }
 function bolehPesan(){ if(geoOk && jarakM!=null){ if(hitung().subtotal<minBeli()){ alert("Minimal pembelian "+rp(minBeli())+". Tambah pesananmu dulu ya."); return false; } if(!ongkirOk){ alert("Klik tombol Ongkir di bawah menu dulu ya."); const e=$("ongkir-box"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); return false; } return true; } alert(jarakM!=null ? "Lokasi kamu terlalu jauh dari warung (maks "+(CONFIG.maxOrderM/1000)+" km)." : "Lokasi kamu belum terdeteksi. Izinkan lokasi lalu tekan Cek ulang."); cekLokasi(); return false; }
 if(CONFIG.lokasi.lat){
