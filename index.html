@@ -91,7 +91,13 @@
   </section>
   <section>
     <h2>Hubungi Kami</h2>
-    <a id="wa-kontak" class="btn green" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">💬 Chat WhatsApp</a>
+    <button id="chat-main" class="btn green" style="display:block;width:100%">💬 Chat Warung</button>
+    <div class="note">Tanya menu, stok, atau pesanan? Chat langsung ke warung di sini, kami balas secepatnya.</div>
+  </section>
+  <section>
+    <h2>Ada Keluhan?</h2>
+    <div class="note" style="margin:0 0 8px">Pesanan terlambat, pelayanan kurang baik, atau masalah lain: hubungi kami lewat WhatsApp.</div>
+    <a id="wa-kontak" class="btn ghost" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">📱 Hubungi via WhatsApp (keluhan)</a>
   </section>
 </main>
 <div class="panel hide" id="atur" style="margin:16px;border-radius:14px;border:2px solid #a61b1b">
@@ -150,7 +156,6 @@
       <input id="chat-in" placeholder="Tulis pesan / keluhan..." maxlength="300">
       <button id="chat-send">Kirim</button>
     </div>
-    <a id="wa-chat" class="btn green" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">Atau chat lewat WhatsApp</a>
     <button class="btn ghost" id="chat-close">Tutup</button>
   </div>
 </div>
@@ -478,6 +483,7 @@ function mulaiPoll(){
   pollTimer=setInterval(()=>{ if(Date.now()>pollSampai || document.hidden) return; cekBalasan(); },15000);
   cekBalasan();
 }
+$("chat-main").onclick=()=>{ if(!order) order={ no:noPesanan(), nama:"Calon pembeli", msgs:[], t:Date.now() }; renderChat(); $("sheet-chat").classList.add("show"); mulaiPoll(); };
 $("chat-btn").onclick=()=>{ $("chat-btn").textContent="💬 Chat Warung"; renderChat(); $("sheet-chat").classList.add("show"); mulaiPoll(); };
 $("chat-close").onclick=()=>$("sheet-chat").classList.remove("show");
 $("chat-send").onclick=async()=>{
@@ -492,7 +498,7 @@ $("chat-send").onclick=async()=>{
 $("chat-in").addEventListener("keydown",e=>{ if(e.key==="Enter") $("chat-send").click(); });
 if(order) mulaiPoll();
 
-(function(){ const u="https://wa.me/"+CONFIG.waKontak+"?text="+encodeURIComponent("Halo Tempura Squad, saya mau tanya/pesan."); $("wa-kontak").href=u; $("wa-chat").href=u; })();
+(function(){ const u="https://wa.me/"+CONFIG.waKontak+"?text="+encodeURIComponent("Halo Tempura Squad, saya mau menyampaikan keluhan/masukan."); $("wa-kontak").href=u; })();
 renderMenu(); refresh();
 cekStok(); setInterval(()=>{ if(!document.hidden) cekStok(); },60000);
 </script>
